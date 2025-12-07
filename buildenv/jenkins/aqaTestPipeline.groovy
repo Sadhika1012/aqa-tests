@@ -345,6 +345,36 @@ def generateJobs(jobJdkVersion, jobTestFlag, jobPlatforms, jobTargets, jobParall
     }
 }
 
+def runTestComparison(baseUrl) {
+    echo "=== Test Comparison Started ==="
+
+    def currentUrl = "${env.BUILD_URL}"
+
+    node("worker || (ci.role.test && hw.arch.x86 && sw.os.linux)") {
+        cleanWs()
+        checkout scm
+
+        sh """
+            python3 -m venv venv
+            . venv/bin/activate
+            pip install --upgrade pip
+            pip install sentence-transformers torch bs4 requests
+        """
+
+        sh "mkdir -p results"
+
+        sh """
+            . venv/bin/activate
+            python3 compare_tap.py \
+                --base-url '${baseUrl}' \
+                --current-url '${currentUrl}' \
+                --output results/comparison_results.txt
+        """
+
+        archiveArtifacts artifacts: "results/comparison_results.txt", fingerprint: true
+    }
+}
+
 def remoteTriggerTemurinJCK () {
     def handle = triggerRemoteJob abortTriggeredJob: true,
         blockBuildUntilComplete: true,
